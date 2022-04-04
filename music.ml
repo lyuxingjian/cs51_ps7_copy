@@ -180,19 +180,45 @@ keep keep the original list around as well. Both need to be recursive,
 since you will call both the inner and outer functions at some
 point. See below for some examples.
 ......................................................................*)
-let rec list_to_stream (lst : obj list) : event NLS.stream =
-  let rec list_to_stream_aux remaining =
-    failwith "list_to_stream not implemented"
-  in list_to_stream_aux lst ;;
-
+let rec list_to_stream (lst : obj list) : event NLS.stream = 
+   assert ((List.length lst) > 0); 
+   (* the lst of objects, and time from last event *)
+   let rec obj2eventlst (lst : obj list) (ttl: float): event list = 
+      match lst with 
+      | [] -> []
+      | hd :: tl -> 
+         match hd with 
+         | Note (p, duration, volume) -> 
+            (Tone (ttl, p, volume)) :: (Stop (duration, p)) :: 
+            obj2eventlst tl 0. 
+         | Rest duration -> obj2eventlst tl (ttl +. duration)
+   in let event_lst = obj2eventlst lst 0. in 
+   let rec list_to_stream_aux (remaining : event list) : event NLS.stream =
+      match remaining with 
+      | [hd] -> lazy (NLS.Cons (hd, list_to_stream lst))
+      | hd :: tl -> 
+         lazy (NLS.Cons(
+            hd, list_to_stream_aux tl
+         ))
+   in list_to_stream_aux event_lst ;;
 (*......................................................................
 Problem 2. Write a function `pair` that merges two event streams. Events
 that happen earlier in time should appear earlier in the merged
 stream. See below for some examples.
 ......................................................................*)
-let rec pair (a : event NLS.stream) (b : event NLS.stream)
+let pair (a : event NLS.stream) (b : event NLS.stream)
            : event NLS.stream =
-  failwith "pair not implemented" ;;
+   (* Time from last event for a and b *)
+   let rec pair' a b offseta offsetb = 
+      let (NLS.Cons (a0, a')), NLS.Cons (b0, b') = (Lazy.force a), (Lazy.force b) in 
+      let ta, tb = ((time_of_event a0) -. offseta), ((time_of_event b0) -. offsetb) in 
+      if ta < tb then 
+         lazy(NLS.Cons (a0, pair' a' b 0. (offsetb +. ta)))
+      else 
+         lazy(NLS.Cons (b0, pair' a b' (offseta +. tb) 0.)) in 
+   pair' a b 0. 0.;;
+
+
 
 (*......................................................................
 Problem 3. Write a function `transpose` that takes an event stream and
@@ -205,18 +231,21 @@ let transpose_pitch ((p, oct) : pitch) (half_steps : int) : pitch =
   if newp < 0 then
     if newp mod 12 = 0 then (C, oct + (newp / 12))
     else (int_to_p (newp mod 12 + 12), oct - 1 + (newp / 12))
-  else (int_to_p (newp mod 12), oct + (newp / 12))
+  else (int_to_p (newp mod 12), oct + (newp / 12));;
 
-let transpose (str : event NLS.stream) (half_steps : int)
+let rec transpose (str : event NLS.stream) (half_steps : int)
             : event NLS.stream =
-    failwith "transpose not implemented" ;;
+   let Cons (a, s') = Lazy.force str in 
+   match a with 
+   | Tone (time, p, volume) -> lazy(Cons (
+      Tone (time, (transpose_pitch p half_steps), volume)
+      , transpose s' half_steps))
+   | Stop _ -> lazy(Cons (a, transpose s' half_steps));;
 
 (*----------------------------------------------------------------------
                          Testing music streams
  *)
 
-(* <---- (* ... UNCOMMENT THIS SECTION ONCE YOU'VE IMPLEMENTED 
-                 THE FUNCTIONS ABOVE. ... *)
 
 (*......................................................................
 For testing purposes, let's start with a trivial example, useful for
@@ -263,15 +292,13 @@ let harmony = pair melody1 melody2 ;;
 You can write this out as a midi file and listen to it. *)
                               
 let _ = output_midi "temp.mid" (stream_to_hex 16 harmony) ;;
-   
- *)   (* <----- END OF SECTION TO UNCOMMENT. *)
-   
+      
 (*......................................................................
 The next example combines some scales. Uncomment these lines when you're
 done implementing the functions above. You can listen
 to it by opening the file "scale.mid". *)
 
-(*
+
 let scale1 = list_to_stream (List.map quarter
                                       [(C,3); (D,3); (E,3); (F,3); 
                                        (G,3); (A,3); (B,3); (C,4)]) ;;
@@ -281,7 +308,9 @@ let scale2 = transpose scale1 7 ;;
 let scales = pair scale1 scale2 ;; 
 
 let _ = output_midi "scale.mid" (stream_to_hex 32 scales) ;; 
- *)
+let _ = output_midi "scale_a.mid" (stream_to_hex 32 scale1) ;; 
+let _ = output_midi "scale_b.mid" (stream_to_hex 32 scale2) ;; 
+
 
 (*......................................................................
 Then with just three lists provided after this comment and the
@@ -295,7 +324,7 @@ streams `bass` and `melody`. Uncomment the definitions above and the
 lines below when you're done. Run the program and open "canon.mid" to
 hear the beautiful music. *)
    
-(*
+
 let bass = list_to_stream
               (List.map quarter [(D, 3); (A, 2); (B, 2); (Gb, 2); 
                                  (G, 2); (D, 2); (G, 2); (A, 2)]) ;; 
@@ -312,10 +341,10 @@ let fast = [(D, 3); (Gb, 3); (A, 3); (G, 3);
 
 let melody = list_to_stream ((List.map quarter slow)
                              @ (List.map eighth fast));;
- *)
-let canon = lazy (failwith "canon not implemented")
+ 
+let canon = melody ;;
 
-(* output_midi "canon.mid" (stream_to_hex 176 canon);; *)
+output_midi "canon.mid" (stream_to_hex 176 canon);;
 
 
 (*......................................................................
@@ -323,7 +352,6 @@ Four more streams of music for you to play with. Try overlaying them
 all and outputting it as a midi file. You can also make your own music
 here. *)
    
-(*
 let part1 = list_to_stream
               [Rest 0.5;  Note((D, 4), 0.75, 60);  
                Note((E, 4), 0.375, 60); Note((D, 4), 0.125, 60);  
@@ -348,7 +376,6 @@ let part4 = list_to_stream
                Note((D, 3), 0.125, 60); Note((C, 3), 0.125, 60);
                Note((B, 2), 0.125, 60); Note((A, 2), 0.25, 60);
                Note((E, 3), 0.375, 60); Note((D, 3), 0.125, 60)];;
- *)
                          
 (*======================================================================
 Reflection on the problem set

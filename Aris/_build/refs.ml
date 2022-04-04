@@ -15,17 +15,10 @@ auxiliary function. Don't worry about space usage.
 For instance, we can establish a cyclic and an acyclic mutable list
 like this:
 
-let sample_end = ref Nil ;;
-let cyclic = Cons (1, ref (Cons (2, sample_end))) ;;
-sample_end := cyclic ;;
+    # let sample_end = ref Nil ;;
+    # let cyclic = Cons (1, ref (Cons (2, sample_end))) ;;
+    # sample_end := cyclic ;;
     # let acyclic = Cons (3, ref (Cons(4, ref Nil))) ;;
-
-
-let sample_end2 = ref Nil;; 
-let cyclic2 = Cons(3, ref (Cons (4, ref (Cons (5,
-sample_end2)))));; 
-sample_end2 := cyclic ;; 
-
 
 and test for cycles using `has_cycle`:
 
@@ -34,18 +27,27 @@ and test for cycles using `has_cycle`:
     # has_cycle acyclic ;;
     - : bool = false
 ......................................................................*)
-                                      
-let has_cycle (lst : 'a mlist) : bool =
-  let rec has_cycle' (lst : 'a mlist) (seen : ('a mlist ref) list) : bool = 
-    match lst with 
-    | Nil -> false 
-    | Cons (_, ref_tl) -> 
-      (* If this has not been seen before: move on 
-      i.e. move to next element, and append the current reference to "seen" *)
-      if List.for_all ((!=) ref_tl) seen then 
-        has_cycle' !ref_tl (ref_tl :: seen) else 
-      true in 
-  has_cycle' lst [] ;;
+ 
+let cycle (lst : 'a mlist ref) =
+    let searched = ref [] in  
+    fun () -> 
+      let found = List.memq lst !searched in 
+      searched := lst :: !searched; 
+      found;; 
+
+(* let cycle2 (lst : 'a mlist ref) = *)
+(*     let searched = ref [] in *)  
+(*     fun () -> *) 
+(*       let found = List.mem lst !searched in *) 
+(*       searched := lst :: !searched; *) 
+(*       found, searched;; *) 
+
+
+let rec has_cycle (lst : 'a mlist) : bool  = 
+  match lst with 
+  | Nil -> false 
+  | Cons (a, b) -> cycle b () || has_cycle !b;;  
+
 
 (*......................................................................
 Problem 2: Write a function `flatten` that flattens a list (removes
@@ -53,38 +55,63 @@ its cycles if it has any) destructively. Again, you may want a
 recursive auxiliary function, and you shouldn't worry about space.
 ......................................................................*)
 
-let flatten (lst : 'a mlist) : unit =
-  let rec flatten' (lst : 'a mlist) (seen : ('a mlist ref) list) = 
-    match lst with 
-    | Nil -> ()
-    | Cons (hd, ref_tl) ->
-      (* Same as "has_cycle": detect whether ref_tl has been seen before *) 
-      if List.for_all ((!=) ref_tl) seen then 
-        flatten' !ref_tl (ref_tl :: seen) else 
-        (* If so, replace the *last* reference (replacing the current tail 
-        will simultaneously overwrite a previous tail ref, which we don't want) *)
-        List.hd seen := Cons (hd, ref Nil)
-      in 
-  flatten' lst [] ;;
+let cycle2 (lst : 'a mlist ref) =
+    let searched = ref [] in  
+    fun () -> 
+      let found = List.memq lst !searched in 
+      searched := lst :: !searched; 
+      found, searched;; 
+
+(* let rec mlist_of_list (lst : 'a list) : 'a mlist = *)
+(*   match lst with *) 
+(*   | [] -> Nil *) 
+(*   | hd :: tl -> Cons (hd, ref (mlist_of_list tl));; *) 
+
+let rec lst_to_mlst (lst : (('a mlist ref) list)) : 'a mlist = 
+  match lst with 
+  |[] -> Nil 
+  | hd :: tl -> 
+      match !hd with 
+      |Nil -> failwith "impossible mlist"  
+      |Cons(a, b) -> Cons(a, ref (lst_to_mlst tl) );; 
+
+let rec flatten (lst : 'a mlist ref) : unit =
+  if (has_cycle !lst) = false then () else 
+  match !lst with 
+  | Nil -> ()
+  | Cons(a, b) -> let found, searched = cycle2 b () in 
+  if found then lst := (lst_to_mlst !searched) else flatten b;; 
+
+
+
 
 (*......................................................................
 Problem 3: Write a function `mlength`, which nondestructively finds
 the number of nodes in a mutable list that may have cycles.
 ......................................................................*)
 
-(* First note that there can be at most one cycle *)
-let mlength (lst : 'a mlist) : int =
-  let rec mlength' (lst : 'a mlist) (seen : ('a mlist ref) list) : int = 
-    match lst with 
-    | Nil -> List.length seen 
-    | Cons (hd, ref_tl) ->
-      (* Same as "has_cycle": detect whether ref_tl has been seen before *) 
-      if List.for_all ((!=) ref_tl) seen then 
-        mlength' !ref_tl (ref_tl :: seen) else 
-        (* If so, simply return the number of tails seen *)
-        List.length seen 
-      in 
-  mlength' lst [] ;;
+(* let cycle2 (lst : 'a mlist ref) = *)
+(*     let searched = ref [] in *)  
+(*     fun () -> *) 
+(*       let found = List.memq lst !searched in *) 
+(*       searched := lst :: !searched; *) 
+(*       found, searched;; *) 
+
+let rec chop (revtl : ('a mlist ref) list) (hd: 'a mlist ref) : ('a mlist ref) list = 
+  match revtl with 
+  | [] -> []
+  | h :: t -> if h == hd then chop t hd else h :: chop t hd;;  
+
+let rec mlength (lst : 'a mlist) : int =
+  if (has_cycle lst) = false then 0 else 
+  match lst with 
+  | Nil -> 0
+  | Cons(a, b) -> let found, searched = cycle2 b () in 
+  if found then let revlst = List.rev !searched in 
+  List.length (chop (List.tl revlst) (List.hd revlst))
+  else mlength !b;; 
+
+
 
 (*======================================================================
 Reflection on the problem set

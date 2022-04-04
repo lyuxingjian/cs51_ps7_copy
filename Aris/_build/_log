@@ -1,0 +1,49 @@
+### Starting build.
+# Target: music.ml.depends, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), extension:ml, file:music.ml, ocaml, ocamldep, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamldep -package graphics -package CS51Utils -modules music.ml > music.ml.depends
+# Target: nativeLazyStreams.mli.depends, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), extension:mli, file:nativeLazyStreams.mli, ocaml, ocamldep, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamldep -package graphics -package CS51Utils -modules nativeLazyStreams.mli > nativeLazyStreams.mli.depends # cached
+# Target: nativeLazyStreams.cmi, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), byte, compile, extension:mli, file:nativeLazyStreams.mli, interf, ocaml, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamlc -c -thread -strict-sequence -package graphics -package CS51Utils -w A-4-33-40-41-42-43-34-44 -o nativeLazyStreams.cmi nativeLazyStreams.mli # cached
+# Target: music.cmo, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), byte, compile, extension:cmo, extension:ml, file:music.cmo, file:music.ml, implem, ocaml, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamlc -c -thread -strict-sequence -package graphics -package CS51Utils -w A-4-33-40-41-42-43-34-44 -o music.cmo music.ml
++ ocamlfind ocamlc -c -thread -strict-sequence -package graphics -package CS51Utils -w A-4-33-40-41-42-43-34-44 -o music.cmo music.ml
+File "music.ml", line 184, characters 10-28:
+184 |   let rec list_to_stream_aux remaining =
+                ^^^^^^^^^^^^^^^^^^
+Warning 39 [unused-rec-flag]: unused rec flag.
+File "music.ml", line 183, characters 8-22:
+183 | let rec list_to_stream (lst : obj list) : event NLS.stream =
+              ^^^^^^^^^^^^^^
+Warning 39 [unused-rec-flag]: unused rec flag.
+File "music.ml", line 193, characters 8-12:
+193 | let rec pair (a : event NLS.stream) (b : event NLS.stream)
+              ^^^^
+Warning 39 [unused-rec-flag]: unused rec flag.
+File "music.ml", line 184, characters 29-38:
+184 |   let rec list_to_stream_aux remaining =
+                                   ^^^^^^^^^
+Warning 27 [unused-var-strict]: unused variable remaining.
+File "music.ml", line 193, characters 14-15:
+193 | let rec pair (a : event NLS.stream) (b : event NLS.stream)
+                    ^
+Warning 27 [unused-var-strict]: unused variable a.
+File "music.ml", line 193, characters 37-38:
+193 | let rec pair (a : event NLS.stream) (b : event NLS.stream)
+                                           ^
+Warning 27 [unused-var-strict]: unused variable b.
+File "music.ml", line 210, characters 15-18:
+210 | let transpose (str : event NLS.stream) (half_steps : int)
+                     ^^^
+Warning 27 [unused-var-strict]: unused variable str.
+File "music.ml", line 210, characters 40-50:
+210 | let transpose (str : event NLS.stream) (half_steps : int)
+                                              ^^^^^^^^^^
+Warning 27 [unused-var-strict]: unused variable half_steps.
+# Target: nativeLazyStreams.ml.depends, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), extension:ml, file:nativeLazyStreams.ml, ocaml, ocamldep, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamldep -package graphics -package CS51Utils -modules nativeLazyStreams.ml > nativeLazyStreams.ml.depends # cached
+# Target: nativeLazyStreams.cmo, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), byte, compile, extension:cmo, extension:ml, file:nativeLazyStreams.cmo, file:nativeLazyStreams.ml, implem, ocaml, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamlc -c -thread -strict-sequence -package graphics -package CS51Utils -w A-4-33-40-41-42-43-34-44 -o nativeLazyStreams.cmo nativeLazyStreams.ml # cached
+# Target: music.byte, tags: { package(CS51Utils), package(graphics), warn(A-4-33-40-41-42-43-34-44), byte, dont_link_with, extension:byte, file:music.byte, link, ocaml, program, quiet, strict-sequence, thread, traverse, use_str }
+ocamlfind ocamlc -linkpkg str.cma -thread -package graphics -package CS51Utils nativeLazyStreams.cmo music.cmo -o music.byte
+# Compilation successful.

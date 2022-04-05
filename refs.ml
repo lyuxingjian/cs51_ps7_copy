@@ -29,16 +29,16 @@ and test for cycles using `has_cycle`:
 ......................................................................*)
                                       
 let has_cycle (lst : 'a mlist) : bool =
-  let rec has_cycle' (lst : 'a mlist) (seen : ('a mlist ref) list) : bool = 
-    match lst with 
+  let rec has_cycle' (lst_ref : 'a mlist ref) (seen : ('a mlist ref) list) : bool = 
+    match (!lst_ref) with 
     | Nil -> false 
     | Cons (_, ref_tl) -> 
       (* If this has not been seen before: move on 
       i.e. move to next element, and append the current reference to "seen" *)
       if List.for_all ((!=) ref_tl) seen then 
-        has_cycle' !ref_tl (ref_tl :: seen) else 
+        has_cycle' ref_tl (ref_tl :: seen) else 
       true in 
-  has_cycle' lst [] ;;
+  has_cycle' (ref lst) [] ;;
 
 (*......................................................................
 Problem 2: Write a function `flatten` that flattens a list (removes
@@ -47,18 +47,19 @@ recursive auxiliary function, and you shouldn't worry about space.
 ......................................................................*)
 
 let flatten (lst : 'a mlist) : unit =
-  let rec flatten' (lst : 'a mlist) (seen : ('a mlist ref) list) = 
+  let rec flatten' (lst : 'a mlist) (seen : ('a mlist) list) (last_ref : 'a mlist ref) = 
     match lst with 
     | Nil -> ()
     | Cons (hd, ref_tl) ->
-      (* Same as "has_cycle": detect whether ref_tl has been seen before *) 
-      if List.for_all ((!=) ref_tl) seen then 
-        flatten' !ref_tl (ref_tl :: seen) else 
+      (* Same as "has_cycle": detect whether the lst itself has been seen before; 
+      checks physical inequalty *) 
+      if List.for_all ((!=) lst) seen then 
+        flatten' !ref_tl (lst :: seen) ref_tl else 
         (* If so, replace the *last* reference (replacing the current tail 
         will simultaneously overwrite a previous tail ref, which we don't want) *)
-        List.hd seen := Cons (hd, ref Nil)
+        last_ref := Nil; 
       in 
-  flatten' lst [] ;;
+  flatten' lst [] (ref lst);;
 
 (*......................................................................
 Problem 3: Write a function `mlength`, which nondestructively finds

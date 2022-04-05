@@ -208,17 +208,19 @@ stream. See below for some examples.
 ......................................................................*)
 let pair (a : event NLS.stream) (b : event NLS.stream)
            : event NLS.stream =
+   let change_time_from_last (e : event) (t : float) : event = 
+      match e with 
+      | Stop (_, p) -> Stop (t, p)
+      | Tone (_, p, v) -> Tone (t, p, v) in 
    (* Time from last event for a and b *)
    let rec pair' a b offseta offsetb = 
       let (NLS.Cons (a0, a')), NLS.Cons (b0, b') = (Lazy.force a), (Lazy.force b) in 
       let ta, tb = ((time_of_event a0) -. offseta), ((time_of_event b0) -. offsetb) in 
       if ta < tb then 
-         lazy(NLS.Cons (a0, pair' a' b 0. (offsetb +. ta)))
+         lazy(NLS.Cons (change_time_from_last a0 ta, pair' a' b 0. (offsetb +. ta)))
       else 
-         lazy(NLS.Cons (b0, pair' a b' (offseta +. tb) 0.)) in 
+         lazy(NLS.Cons (change_time_from_last b0 tb, pair' a b' (offseta +. tb) 0.)) in 
    pair' a b 0. 0.;;
-
-
 
 (*......................................................................
 Problem 3. Write a function `transpose` that takes an event stream and
@@ -234,13 +236,13 @@ let transpose_pitch ((p, oct) : pitch) (half_steps : int) : pitch =
   else (int_to_p (newp mod 12), oct + (newp / 12));;
 
 let rec transpose (str : event NLS.stream) (half_steps : int)
-            : event NLS.stream =
+            : event NLS.stream = 
    let Cons (a, s') = Lazy.force str in 
    match a with 
-   | Tone (time, p, volume) -> lazy(Cons (
+   | Tone (time, p, volume) -> lazy(NLS.Cons (
       Tone (time, (transpose_pitch p half_steps), volume)
       , transpose s' half_steps))
-   | Stop _ -> lazy(Cons (a, transpose s' half_steps));;
+   | Stop _ -> lazy(NLS.Cons (a, transpose s' half_steps));;
 
 (*----------------------------------------------------------------------
                          Testing music streams
@@ -267,7 +269,7 @@ should look something like this:
 Now, we transpose it and shift the start forward by a quarter note: *)
   
 let melody2 = shift_start 0.25
-                          (transpose melody1 7) ;;
+                        (transpose melody1 7) ;; 
 
 (* The result is a stream that begins as
 
@@ -292,6 +294,9 @@ let harmony = pair melody1 melody2 ;;
 You can write this out as a midi file and listen to it. *)
                               
 let _ = output_midi "temp.mid" (stream_to_hex 16 harmony) ;;
+
+let _ = output_midi "temp1.mid" (stream_to_hex 32 melody1) ;; 
+let _ = output_midi "temp2.mid" (stream_to_hex 32 melody2) ;; 
       
 (*......................................................................
 The next example combines some scales. Uncomment these lines when you're
@@ -339,13 +344,14 @@ let fast = [(D, 3); (Gb, 3); (A, 3); (G, 3);
             (D, 3); (B, 2); (D, 3); (A, 3);
             (G, 3); (B, 3); (A, 3); (G, 3)] ;; 
 
-let melody = list_to_stream ((List.map quarter slow)
-                             @ (List.map eighth fast));;
- 
-let canon = melody ;;
+let melody = shift_start 2. (list_to_stream ((List.map quarter slow)
+                             @ (List.map eighth fast)));;
+let canon = pair melody bass;;
+let overtone = list_to_stream (List.map quarter slow);;
+let canon = pair canon (shift_start 4. overtone);;
+let canon = pair canon (shift_start 6. overtone);;
 
-output_midi "canon.mid" (stream_to_hex 176 canon);;
-
+let _ = output_midi "canon.mid" (stream_to_hex 176 canon);;
 
 (*......................................................................
 Four more streams of music for you to play with. Try overlaying them

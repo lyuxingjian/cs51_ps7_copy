@@ -20,6 +20,13 @@ let cyclic = Cons (1, ref (Cons (2, sample_end))) ;;
 sample_end := cyclic ;;
     # let acyclic = Cons (3, ref (Cons(4, ref Nil))) ;;
 
+
+let sample_end2 = ref Nil;; 
+let cyclic2 = Cons(3, ref (Cons (4, ref (Cons (5,
+sample_end2)))));; 
+sample_end2 := cyclic ;; 
+
+
 and test for cycles using `has_cycle`:
 
     # has_cycle cyclic ;;

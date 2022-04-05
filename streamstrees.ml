@@ -34,6 +34,12 @@ Notice that it takes about 2000 terms in the Taylor series to get
 within 0.001 of the value of pi. This method converges quite
 slowly. 
 
+let rec within epsilon s =
+ let hd,tl = head s, tail s in
+ if abs_float (hd -. (head tl)) < epsilon then hd
+    else within epsilon tl ;;
+
+
 But we can increase the speed dramatically using a technique called
 "series acceleration". In lab 15, you began experimenting with series
 acceleration, speeding up the convergence of the `pi_sums` stream by
@@ -44,8 +50,6 @@ adjacent values in the input stream. For example:
     # first 5 (average (to_float nats)) ;;
     - : float list = [0.5; 1.5; 2.5; 3.5; 4.5]
  *)
-
-let to_float = smap float_of_int ;;
 
 let average (s : float stream) : float stream =
   smap2 (fun x y -> (x +. y) /. 2.0) s (tail s) ;;
@@ -67,6 +71,16 @@ more quickly:
     # within 0.0000001 (average pi_sums) ;;
     - : int * float = (3161, 3.1415926035968269)
 
+
+     within 0.01 (aitken pi_sums) ;;
+     within 0.001 (aitken pi_sums) ;;     
+     within 0.0001 (aitken pi_sums) ;;
+     within 0.00001 (aitken pi_sums) ;;
+     within 0.000001 (aitken pi_sums) ;;
+     within 0.0000001 (aitken pi_sums) ;;
+
+
+
 We've placed a table below of the number of steps required for the
 `pi_sums` and `average pi_sums` methods.
 
@@ -80,33 +94,14 @@ Problem 4: Implementing Aitken's method
 Write a function `aitken` to apply this accelerator to a stream, and
 use it to generate approximations of pi.
 ......................................................................*)
-
-(* s_n - (s_n - s_{n-1})^2/(s_n-2s_{n-1}+s_{n-2}) *)
+   
 let aitken (s: float stream) : float stream =
-  lazy (Cons (head s, lazy (Cons (
-    head (tail s), 
-      smap2 (-.) s (
-    smap2 (/.) 
-    (
-      (* (s_n - s_{n-1})^2 *)
-      smap (fun x -> x *. x) (
-        smap2 (-.) (tail (tail s))
-        (tail s)
-      )
-    )
-    (
-      (* s_n-2s_{n-1}+s_{n-2} *)
-      smap2 (-.)
-        (tail (tail s)) 
-      (
-      (* 2s_{n-1}-s_{n-2} *)
-      smap2 (-.)
-        (smap (( *. ) 2.) (tail s))
-        s 
-      )
-    )
-  )
-  ))));;
+    let s1 = smap2 (fun x y -> x -. 2. *. y) s (tail s) in 
+    let s2 = smap2 (fun x y -> x +. y) s1 (tail (tail s)) in 
+    let s3 = smap2 (fun x y -> (x -. y) ** 2.) s (tail s) in 
+    let s4 = smap2 (fun x y -> x /. y) s3 s2 in 
+    smap2 (fun x y -> x -. y) s s4;; 
+
 
 (*......................................................................
 Problem 5: Testing the acceleration
@@ -118,17 +113,17 @@ get within different epsilons of pi using Aitken's method.
     -------------------------------------------------------------
     epsilon  |  pi_sums  |  averaged method  |  Aitken's method
     -------------------------------------------------------------
-    0.1      |        19 |                 2 | 6
+    0.1      |        19 |                 2 |  2 
     -------------------------------------------------------------
-    0.01     |       199 |                 9 | 20
+    0.01     |       199 |                 9 |  6 
     -------------------------------------------------------------
-    0.001    |      1999 |                30 | 63
+    0.001    |      1999 |                30 |  15 
     -------------------------------------------------------------
-    0.0001   |     19999 |                99 | 200
+    0.0001   |     19999 |                99 |  35
     -------------------------------------------------------------
-    0.00001  |    199999 |               315 | 633
+    0.00001  |    199999 |               315 |  77 
     -------------------------------------------------------------
-    0.000001 |  too many |               999 | 2000
+    0.000001 |  too many |               999 |  169
     -------------------------------------------------------------
  *)
 (*....................................................................*)
@@ -162,43 +157,42 @@ tree `t` of type `'a tree`.
 ......................................................................*)
   
 let node (t : 'a tree) : 'a =
-  let Node (ele, _) = Lazy.force t in ele ;;
+    let Node(a, b) = Lazy.force t in 
+    if b = [] then raise Finite_tree 
+    else a ;; 
 
 (*......................................................................
 children t -- Returns the list of children of the root node of tree `t`.
 ......................................................................*)
    
 let children (t : 'a tree) : 'a tree list =
-  let Node (_, lst) = Lazy.force t in lst ;;
+    let Node(_, b) = Lazy.force t in 
+    if b = [] then raise Finite_tree 
+    else b ;; 
+
 
 (*......................................................................
 print_depth n indent t -- Prints a representation of the first `n`
 levels of the tree `t` indented `indent` spaces. You can see some
 examples of the intended output of `print_depth` below.
-
-    0
-     1
-      2...
-      2...
-     1
-      2...
-      2...
 ......................................................................*)
-   
+
+(* let rec print_hds (lst : 'a tree list) : unit = *) 
+(*     match lst with *) 
+(*     | [] -> () *)
+(*     | hd :: tl -> print_endline (string_of_int (node hd)); print_hds tl;; *) 
+
 let rec print_depth (n : int) (indent : int) (t : int tree) : unit =
-  if n < 0 then () else 
-  let rec n_spaces n = if n = 0 then "" else " "^(n_spaces (n - 1)) in 
-  let Node (ele, subtrees) = Lazy.force t in 
-  if n = 0 then 
-    Printf.printf "%s%d...\n" (n_spaces indent) ele
-  else 
-    Printf.printf "%s%d\n" (n_spaces indent) ele; 
-  let subtrees_ref = ref subtrees in 
-  for i = 1 to List.length subtrees do 
-    print_depth (n-1) (indent + 1) (List.hd !subtrees_ref); 
-    subtrees_ref := List.tl !subtrees_ref
-  done
-;;
+    if n = 0 then () else
+        print_endline (string_of_int (node t));  
+    let rec print_depth' (lst : 'a tree list) (i : int) : unit = 
+        match lst  with 
+        |[] -> () 
+        |hd :: tl -> Printf.printf "%*s" indent ""; 
+        print_depth (n - 1) indent hd; 
+        print_depth' tl (i + indent) in 
+    print_depth' (children t) (indent);; 
+        
 
 (*......................................................................
 tmap f t -- Returns a tree obtained by mapping the function `f` over
@@ -206,11 +200,7 @@ each node in `t`.
 ......................................................................*)
    
 let rec tmap (f : 'a -> 'b) (t : 'a tree) : 'b tree =
-  let Node (ele, lst) = Lazy.force t in 
-  lazy (
-    Node(f ele, 
-      List.map (tmap f) lst
-    ));;
+    lazy (Node(f (node t), List.map (fun x -> tmap f x) (children t)));; 
 
 (*......................................................................
 tmap2 f t1 t2 -- Returns the tree obtained by applying the function
@@ -221,12 +211,11 @@ tmap2 f t1 t2 -- Returns the tree obtained by applying the function
 let rec tmap2 (f : 'a -> 'b -> 'c)
           (t1 : 'a tree) (t2 : 'b tree)
         : 'c tree =
-  let (Node (a, t1')), (Node (b, t2')) = (Lazy.force t1), (Lazy.force t2) in 
-  if List.length t1' <> List.length t2' then 
-    raise (Invalid_argument "subtrees not of same length") else 
-  lazy(Node(
-    f a b, List.map2 (tmap2 f) t1' t2'
-  ));;
+    if List.length (children t1) <> List.length (children t2) 
+      then raise (Invalid_argument "trees not same length")  
+    else lazy(Node(f (node t1) (node t2), List.map2 (fun x y -> tmap2 f x y) 
+      (children t1) (children t2)));; 
+            
 
 (*......................................................................
 bfenumerate tree_list -- Returns a `stream` of the nodes in the list
@@ -236,33 +225,27 @@ forth. There is an example of `bfenumerate` being applied below. If
 there isn't an infinite set of nodes in the list of trees (think about
 how that could come about), raise a `Finite_tree` exception.
 ......................................................................*)
-   
-let rec bfenumerate (tree_list : 'a tree list) : 'a stream =
-  (* If not every tree in the tree_list has a nonempty subtree list *)
-  if not (List.for_all (fun t -> let Node (_, subtrees) = Lazy.force t in (List.length subtrees) > 0)
-    tree_list) then raise Finite_tree else 
 
-  let eles = List.map (fun t -> let Node (ele, _) = Lazy.force t in ele) tree_list in 
-  let subtrees = List.map (fun t -> let Node (_, lst) = Lazy.force t in lst) tree_list in 
-  let flattened_subtrees = List.fold_right ( @ ) subtrees [] in 
-  (* This line of "lazy" is crucial! see below *)
-  let s = lazy (bfenumerate flattened_subtrees) in 
-  let rec prefix (lst : 'a list): 'a stream = 
-    match lst with 
-    | [] -> Lazy.force s 
-    | hd :: tl -> lazy ( Cons (hd, prefix tl)) in 
-  prefix eles
-;;
+let rec split (super: 'a tree list) (sub : ('a tree list)) : 'a stream = 
+    match super with 
+    | [] -> split sub [] 
+    | hd :: tl -> lazy(Cons(node hd, split tl (sub @
+    (children hd))));;  
+(* split tree_list []; *)  
 
-(* Compare this to the naive implementation, which will induce an infinite recursion error. 
-We need to delay the recursive call of "bfenumerate flattened_subtrees"
-let s = bfenumerate flattened_subtrees in 
-let rec prefix (lst : 'a list): 'a stream = 
-  match lst with 
-  | [] -> s
-  | hd :: tl -> lazy ( Cons (hd, prefix tl)) in 
-prefix eles
-*)
+
+
+let bfenumerate (tree_list : 'a tree list) : 'a stream =
+    if tree_list = [] then raise Finite_tree else 
+        split tree_list [];; 
+
+
+
+(*     match Lazy.force (Lazy.hd tree_list) with *) 
+(*     |Node (a, b) -> *) 
+(*     Cons(List.hd tree_list, bfenumerate List.tl tree_list);; *)
+
+
 
 
 (* Now you'll use your implementation to generate some interesting
@@ -273,9 +256,9 @@ problems. *)
 (*......................................................................
 onest -- An infinite binary tree all of whose nodes hold the integer 1.
 ......................................................................*)
-   
-let rec onest : int tree =
-  lazy (Node (1, [onest; onest])) ;;
+ let rec onest : int tree =
+     lazy (Node (1, [onest; onest]));; 
+
 
 (*......................................................................
 levels n -- Returns an infinite binary tree where the value of each
@@ -294,9 +277,7 @@ argument `n`. For example:
 ......................................................................*)
    
 let rec levels (n : int) : int tree =
-  lazy (Node (
-    n, [levels (n+1); levels (n+1)]
-  ));;
+    lazy (Node (n, [levels (n + 1); levels (n + 1)]));; 
 
 (*......................................................................
 tree_nats -- An infinite binary tree where the value of each
@@ -318,11 +299,10 @@ starting with 0. For example:
 ......................................................................*)
    
 let tree_nats : int tree =
-  let rec tree_start (n : int) : int tree = 
-    lazy (Node (
-      n, [tree_start (2 * n + 1); tree_start (2 * n + 2)]
-    )) in 
-  tree_start 0;;
+  let rec trees_start (n : int) : int tree = 
+      lazy(Node (n, [trees_start (n * 2 + 1); trees_start ((n + 1) * 2)])) in 
+  trees_start 0 ;; 
+
 
 (*======================================================================
 Reflection on the problem set

@@ -45,6 +45,8 @@ adjacent values in the input stream. For example:
     - : float list = [0.5; 1.5; 2.5; 3.5; 4.5]
  *)
 
+let to_float = smap float_of_int ;;
+
 let average (s : float stream) : float stream =
   smap2 (fun x y -> (x +. y) /. 2.0) s (tail s) ;;
 
